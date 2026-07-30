@@ -354,28 +354,17 @@
         if (!elements.bookingForm) return;
 
 elements.clientPhone?.addEventListener('input', e => {
-            const cursorPos = e.target.selectionStart;
-            const oldValue = e.target.value;
-            
-            let value = oldValue.replace(/\D/g, '');
+            let value = e.target.value.replace(/\D/g, '');
             if (value.length > 11) value = value.slice(0, 11);
             if (value.startsWith('8')) value = '7' + value.slice(1);
 
-            let formatted = '';
-            if (value.length >= 1) formatted += '+7 ';
-            if (value.length >= 4) formatted += '(' + value.slice(1, 4);
-            if (value.length >= 4) formatted += ') ';
-            if (value.length >= 7) formatted += value.slice(4, 7);
-            if (value.length >= 7) formatted += '-';
-            if (value.length >= 9) formatted += value.slice(7, 9);
-            if (value.length >= 9) formatted += '-';
-            if (value.length >= 11) formatted += value.slice(9, 11);
+            let formatted = '+7';
+            if (value.length >= 2) formatted += ' (' + value.slice(1, 4);
+            if (value.length >= 4) formatted += ') ' + value.slice(4, 7);
+            if (value.length >= 7) formatted += '-' + value.slice(7, 9);
+            if (value.length >= 9) formatted += '-' + value.slice(9, 11);
 
             e.target.value = formatted;
-            
-            // Preserve cursor position
-            const newCursorPos = cursorPos + (formatted.length - oldValue.length);
-            e.target.setSelectionRange(newCursorPos, newCursorPos);
         });
 
         elements.bookingForm.addEventListener('submit', handleBookingSubmit);
