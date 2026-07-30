@@ -57,7 +57,7 @@ async def process_booking(message: Message, data: dict):
         )
         return
     
-    async with get_session() as session:
+    async for session in get_session():
         result = await session.execute(
             select(User).where(User.telegram_id == message.from_user.id)
         )
@@ -159,7 +159,7 @@ async def process_contest(message: Message, data: dict):
         )
         return
     
-    async with get_session() as session:
+    async for session in get_session():
         result = await session.execute(
             select(User).where(User.telegram_id == message.from_user.id)
         )

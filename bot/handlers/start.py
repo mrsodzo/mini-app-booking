@@ -22,7 +22,7 @@ router = Router()
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
     
-    async with get_session() as session:
+    async for session in get_session():
         result = await session.execute(
             select(User).where(User.telegram_id == message.from_user.id)
         )
@@ -72,7 +72,7 @@ async def back_to_start(callback: CallbackQuery):
 async def show_my_bookings(callback: CallbackQuery):
     await callback.answer()
     
-    async with get_session() as session:
+    async for session in get_session():
         result = await session.execute(
             select(User).where(User.telegram_id == callback.from_user.id)
         )
@@ -123,7 +123,7 @@ async def cmd_admin(message: Message):
         await message.answer("❌ У вас нет доступа к админке.")
         return
     
-    async with get_session() as session:
+    async for session in get_session():
         result = await session.execute(
             select(Booking).order_by(Booking.created_at.desc()).limit(20)
         )
@@ -163,7 +163,7 @@ async def admin_callbacks(callback: CallbackQuery):
         await callback.message.edit_text("❌ У вас нет доступа.")
         return
     
-    async with get_session() as session:
+    async for session in get_session():
         if callback.data == "admin_all_bookings":
             result = await session.execute(
                 select(Booking).order_by(Booking.created_at.desc())
@@ -225,7 +225,7 @@ async def complete_booking(callback: CallbackQuery):
     
     booking_id = int(callback.data.split("_")[-1])
     
-    async with get_session() as session:
+    async for session in get_session():
         result = await session.execute(
             select(Booking).where(Booking.id == booking_id)
         )
@@ -267,7 +267,7 @@ async def cancel_booking_admin(callback: CallbackQuery):
     
     booking_id = int(callback.data.split("_")[-1])
     
-    async with get_session() as session:
+    async for session in get_session():
         result = await session.execute(
             select(Booking).where(Booking.id == booking_id)
         )

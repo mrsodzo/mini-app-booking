@@ -40,7 +40,7 @@ async def admin_callback(callback: CallbackQuery):
 
 
 async def show_bookings(event, filter_type: str):
-    async with get_session() as session:
+    async for session in get_session():
         query = select(Booking).join(User).join(Service).join(TimeSlot)
         
         if filter_type == "pending":
@@ -73,7 +73,7 @@ async def show_bookings(event, filter_type: str):
 
 
 async def show_contest_entries(event):
-    async with get_session() as session:
+    async for session in get_session():
         result = await session.execute(
             select(ContestEntry).join(User).order_by(ContestEntry.created_at.desc())
         )
@@ -106,7 +106,7 @@ async def booking_action(callback: CallbackQuery):
     
     action, booking_id = callback.data.split("_")[1], int(callback.data.split("_")[2])
     
-    async with get_session() as session:
+    async for session in get_session():
         result = await session.execute(select(Booking).where(Booking.id == booking_id))
         booking = result.scalar_one_or_none()
         
