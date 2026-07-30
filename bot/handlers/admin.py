@@ -40,6 +40,7 @@ async def admin_callback(callback: CallbackQuery):
 
 
 async def show_bookings(event, filter_type: str):
+    bookings = []
     async for session in get_session():
         query = select(Booking).join(User).join(Service).join(TimeSlot)
         
@@ -100,8 +101,8 @@ async def show_contest_entries(event):
 async def booking_action(callback: CallbackQuery):
     if callback.from_user.id != settings.admin_chat_id:
         await callback.answer("❌ Нет доступа", show_alert=True)
-        return
-    
+        return     
+
     await callback.answer()
     
     action, booking_id = callback.data.split("_")[1], int(callback.data.split("_")[2])
@@ -116,7 +117,7 @@ async def booking_action(callback: CallbackQuery):
         
         if action == "complete":
             booking.status = "completed"
-            await session.commit()
+            await session.commit()  # Commit inside session scope!
             try:
                 await callback.bot.send_message(
                     booking.user.telegram_id,
@@ -129,7 +130,7 @@ async def booking_action(callback: CallbackQuery):
         
         elif action == "cancel":
             booking.status = "cancelled"
-            await session.commit()
+            await session.commit()  # Commit inside session scope!
             try:
                 await callback.bot.send_message(
                     booking.user.telegram_id,
