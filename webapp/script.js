@@ -476,6 +476,11 @@ elements.clientPhone?.addEventListener('input', e => {
             window.addEventListener('message', handler);
 
             WebApp.sendData(JSON.stringify(data));
+            
+            // Close WebApp immediately after sending data
+            setTimeout(() => {
+                WebApp.close();
+            }, 100);
         });
     }
 
