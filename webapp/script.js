@@ -354,7 +354,10 @@
         if (!elements.bookingForm) return;
 
 elements.clientPhone?.addEventListener('input', e => {
-            let value = e.target.value.replace(/\D/g, '');
+            const cursorPos = e.target.selectionStart;
+            const oldValue = e.target.value;
+            
+            let value = oldValue.replace(/\D/g, '');
             if (value.length > 11) value = value.slice(0, 11);
             if (value.startsWith('8')) value = '7' + value.slice(1);
 
@@ -369,6 +372,10 @@ elements.clientPhone?.addEventListener('input', e => {
             if (value.length >= 11) formatted += value.slice(9, 11);
 
             e.target.value = formatted;
+            
+            // Preserve cursor position
+            const newCursorPos = cursorPos + (formatted.length - oldValue.length);
+            e.target.setSelectionRange(newCursorPos, newCursorPos);
         });
 
         elements.bookingForm.addEventListener('submit', handleBookingSubmit);
