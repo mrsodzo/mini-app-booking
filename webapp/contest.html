@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#2c3e50">
+    <title>Beauty Studio — Конкурс</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app" id="app">
+        <div class="screen active" id="screen-contest">
+            <header class="screen-header">
+                <h1>Beauty Studio</h1>
+                <p class="subtitle">Розыгрыш скидки 20%</p>
+            </header>
+            <main class="screen-content">
+                <div class="contest-card">
+                    <div class="contest-badge">🎁</div>
+                    <h2>Угадай загадку и выиграй!</h2>
+                    <p class="contest-prize"><strong>Приз:</strong> скидка 20% на любую услугу</p>
+                    
+                    <div class="riddle-box">
+                        <p class="riddle-text" id="riddle-text">Что можно держать в левой руке, но нельзя взять в правую?</p>
+                    </div>
+                    
+                    <form id="contest-form" class="contest-form">
+                        <div class="form-group">
+                            <label for="contest-answer">Ваш ответ <span class="required">*</span></label>
+                            <input type="text" id="contest-answer" name="answer" required placeholder="Введите ответ..." autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="contest-name">Ваше имя <span class="required">*</span></label>
+                            <input type="text" id="contest-name" name="client_name" required placeholder="Иван Иванов" autocomplete="name">
+                        </div>
+                        <div class="form-group">
+                            <label for="contest-phone">Телефон <span class="required">*</span></label>
+                            <input type="tel" id="contest-phone" name="client_phone" required placeholder="+7 (XXX) XXX-XX-XX" autocomplete="tel">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full" id="btn-contest-submit">
+                            <span class="btn-text">Отправить ответ</span>
+                            <span class="btn-loader hidden"><div class="spinner"></div></span>
+                        </button>
+                    </form>
+                    
+                    <p class="contest-rules">
+                        * Участие возможно один раз в месяц. 
+                        * Результаты будут объявлены завтра. 
+                        * Победителю напишем в Telegram.
+                    </p>
+                </div>
+            </main>
+        </div>
+
+        <!-- Screen: Contest Success -->
+        <div class="screen" id="screen-contest-success">
+            <header class="screen-header">
+                <h1>Готово!</h1>
+            </header>
+            <main class="screen-content success-content">
+                <div class="success-icon">
+                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#f39c12" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                </div>
+                <h2>Спасибо за участие!</h2>
+                <p class="success-subtitle">Ваш ответ принят</p>
+                <p class="contest-result">Результаты конкурса объявят завтра. Удачи! 🍀</p>
+                <button class="btn btn-primary btn-full" id="btn-close-contest">Вернуться в бот</button>
+            </main>
+        </div>
+
+        <!-- Screen: Error -->
+        <div class="screen" id="screen-contest-error">
+            <header class="screen-header">
+                <h1>Ошибка</h1>
+            </header>
+            <main class="screen-content error-content">
+                <div class="error-icon">
+                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="15" y1="9" x2="9" y2="15"/>
+                        <line x1="9" y1="9" x2="15" y2="15"/>
+                    </svg>
+                </div>
+                <h2>Что-то пошло не так</h2>
+                <p id="contest-error-message">Попробуйте ещё раз</p>
+                <button class="btn btn-primary" id="btn-contest-retry">Попробовать снова</button>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
