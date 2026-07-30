@@ -356,7 +356,7 @@
 elements.clientPhone?.addEventListener('input', e => {
             let value = e.target.value.replace(/\D/g, '');
             if (value.length > 11) value = value.slice(0, 11);
-            if (value.startsWith('8') || value.startsWith('7')) value = '7' + value.slice(1);
+            if (value.startsWith('8')) value = '7' + value.slice(1);
 
             let formatted = '';
             if (value.length >= 1) formatted += '+7 ';
