@@ -419,6 +419,7 @@ elements.clientPhone?.addEventListener('input', e => {
 
     async function handleBookingSubmit(e) {
         e.preventDefault();
+        console.log('handleBookingSubmit called');
 
         const nameValid = validateField(elements.clientName);
         const phoneValid = validateField(elements.clientPhone);
@@ -433,12 +434,14 @@ elements.clientPhone?.addEventListener('input', e => {
             client_phone: elements.clientPhone.value.trim(),
             notes: elements.clientNotes?.value.trim() || '',
         };
+        console.log('Sending data to bot:', data);
 
         setLoading(elements.btnSubmit, true);
 
         try {
             await sendToBot(data);
             markSlotBooked(state.selectedDate.toISOString().split('T')[0], state.selectedTime);
+            console.log('Data sent successfully');
             // WebApp closes automatically after sendData - bot sends confirmation to chat
         } catch (err) {
             console.error('Booking error:', err);
@@ -460,13 +463,16 @@ elements.clientPhone?.addEventListener('input', e => {
     function sendToBot(data) {
         return new Promise((resolve, reject) => {
             if (!WebApp) {
+                console.log('No WebApp object, resolving mock');
                 setTimeout(() => resolve({ ok: true }), 500);
                 return;
             }
 
+            console.log('Calling WebApp.sendData with:', JSON.stringify(data));
             WebApp.sendData(JSON.stringify(data));
             // Explicitly close WebApp after sendData
             setTimeout(() => {
+                console.log('Closing WebApp');
                 WebApp.close();
                 resolve({ ok: true });
             }, 100);
