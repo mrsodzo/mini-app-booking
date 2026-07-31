@@ -437,9 +437,9 @@ elements.clientPhone?.addEventListener('input', e => {
         setLoading(elements.btnSubmit, true);
 
         try {
-            const response = await sendToBot(data);
+            await sendToBot(data);
             markSlotBooked(state.selectedDate.toISOString().split('T')[0], state.selectedTime);
-            showSuccess(response);
+            // WebApp closes automatically after sendData - bot sends confirmation to chat
         } catch (err) {
             console.error('Booking error:', err);
             showErrorScreen(err.message || 'Не удалось создать запись. Попробуйте позже.');
@@ -463,30 +463,9 @@ elements.clientPhone?.addEventListener('input', e => {
                 return;
             }
 
-            const timeout = setTimeout(() => reject(new Error('Timeout')), 15000);
-
-            function handler(event) {
-                if (event && typeof event === 'string') {
-                    try {
-                        const response = JSON.parse(event);
-                        if (response.ok) {
-                            clearTimeout(timeout);
-                            WebApp.offEvent('webAppData', handler);
-                            resolve(response);
-                        } else {
-                            clearTimeout(timeout);
-                            WebApp.offEvent('webAppData', handler);
-                            reject(new Error(response.error || 'Server error'));
-                        }
-                    } catch (e) {
-                        // Not a JSON response, ignore
-                    }
-                }
-            }
-
-            WebApp.onEvent('webAppData', handler);
-
             WebApp.sendData(JSON.stringify(data));
+            // sendData closes the WebApp immediately - no response possible
+            setTimeout(() => resolve({ ok: true }), 100);
         });
     }
 
@@ -568,13 +547,13 @@ elements.clientPhone?.addEventListener('input', e => {
         setLoading(elements.btnContestSubmit, true);
 
         try {
-            const response = await sendToBot({
+            await sendToBot({
                 action: 'contest',
                 answer: elements.contestAnswer.value.trim(),
                 client_name: name,
                 client_phone: phone,
             });
-            showScreen('screen-contest-success');
+            // WebApp closes automatically after sendData - bot sends confirmation to chat
         } catch (err) {
             console.error('Contest error:', err);
             showContestError(err.message || 'Не удалось отправить ответ. Попробуйте позже.');
