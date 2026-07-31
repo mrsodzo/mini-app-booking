@@ -1,12 +1,51 @@
 (function() {
     'use strict';
 
+    // Simple debug logger visible in WebApp
+    const debugLogs = [];
+    function debugLog(...args) {
+        const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+        const entry = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        debugLogs.push(entry);
+        if (debugLogs.length > 50) debugLogs.shift();
+        console.log(...args);
+        updateDebugPanel();
+    }
+    function updateDebugPanel() {
+        const panel = document.getElementById('debug-panel');
+        if (panel) panel.textContent = debugLogs.join('\n');
+    }
+    function initDebugPanel() {
+        const panel = document.createElement('div');
+        panel.id = 'debug-panel';
+        panel.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:200px;overflow:auto;background:#111;color:#0f0;font:11px monospace;padding:8px;z-index:9999;display:none;white-space:pre-wrap;';
+        document.body.appendChild(panel);
+        let clickCount = 0;
+        document.addEventListener('click', e => {
+            if (e.target.closest('.debug-toggle')) return;
+            clickCount++;
+            if (clickCount === 5) {
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+                clickCount = 0;
+            }
+        });
+        const btn = document.createElement('button');
+        btn.className = 'debug-toggle';
+        btn.textContent = '🐛 Debug';
+        btn.style.cssText = 'position:fixed;bottom:10px;right:10px;z-index:10000;padding:8px 12px;background:#333;color:#fff;border:none;border-radius:4px;font:12px monospace;';
+        btn.onclick = () => panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        document.body.appendChild(btn);
+    }
+
     const WebApp = window.Telegram?.WebApp;
     if (WebApp) {
         WebApp.ready();
         WebApp.expand();
         WebApp.MainButton.hide();
     }
+
+    initDebugPanel();
+    debugLog('WebApp initialized', { WebApp: !!WebApp, userAgent: navigator.userAgent });
 
     const CONFIG = {
         API_URL: '',
@@ -434,17 +473,17 @@ elements.clientPhone?.addEventListener('input', e => {
             client_phone: elements.clientPhone.value.trim(),
             notes: elements.clientNotes?.value.trim() || '',
         };
-        console.log('Sending data to bot:', data);
+        debugLog('Sending data to bot:', data);
 
         setLoading(elements.btnSubmit, true);
 
         try {
             await sendToBot(data);
             markSlotBooked(state.selectedDate.toISOString().split('T')[0], state.selectedTime);
-            console.log('Data sent successfully');
+            debugLog('Data sent successfully');
             // WebApp closes automatically after sendData - bot sends confirmation to chat
         } catch (err) {
-            console.error('Booking error:', err);
+            debugLog('Booking error:', err);
             showErrorScreen(err.message || 'Не удалось создать запись. Попробуйте позже.');
         } finally {
             setLoading(elements.btnSubmit, false);
@@ -463,16 +502,16 @@ elements.clientPhone?.addEventListener('input', e => {
     function sendToBot(data) {
         return new Promise((resolve, reject) => {
             if (!WebApp) {
-                console.log('No WebApp object, resolving mock');
+                debugLog('No WebApp object, resolving mock');
                 setTimeout(() => resolve({ ok: true }), 500);
                 return;
             }
 
-            console.log('Calling WebApp.sendData with:', JSON.stringify(data));
+            debugLog('Calling WebApp.sendData with:', JSON.stringify(data));
             WebApp.sendData(JSON.stringify(data));
             // Explicitly close WebApp after sendData
             setTimeout(() => {
-                console.log('Closing WebApp');
+                debugLog('Closing WebApp');
                 WebApp.close();
                 resolve({ ok: true });
             }, 100);
@@ -565,7 +604,7 @@ elements.clientPhone?.addEventListener('input', e => {
             });
             // WebApp closes automatically after sendData - bot sends confirmation to chat
         } catch (err) {
-            console.error('Contest error:', err);
+            debugLog('Contest error:', err);
             showContestError(err.message || 'Не удалось отправить ответ. Попробуйте позже.');
         } finally {
             setLoading(elements.btnContestSubmit, false);
