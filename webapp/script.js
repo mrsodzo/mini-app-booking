@@ -466,31 +466,25 @@ elements.clientPhone?.addEventListener('input', e => {
             const timeout = setTimeout(() => reject(new Error('Timeout')), 15000);
 
             function handler(event) {
-                if (event.data && typeof event.data === 'string') {
+                if (event && typeof event === 'string') {
                     try {
-                        const response = JSON.parse(event.data);
+                        const response = JSON.parse(event);
                         if (response.ok) {
                             clearTimeout(timeout);
-                            window.removeEventListener('message', handler);
+                            WebApp.offEvent('webAppData', handler);
                             resolve(response);
                         } else {
                             clearTimeout(timeout);
-                            window.removeEventListener('message', handler);
+                            WebApp.offEvent('webAppData', handler);
                             reject(new Error(response.error || 'Server error'));
                         }
                     } catch (e) {
                         // Not a JSON response, ignore
                     }
                 }
-                
-                if (event.data === 'web_app_close') {
-                    clearTimeout(timeout);
-                    window.removeEventListener('message', handler);
-                    reject(new Error('WebApp closed'));
-                }
             }
 
-            window.addEventListener('message', handler);
+            WebApp.onEvent('webAppData', handler);
 
             WebApp.sendData(JSON.stringify(data));
         });
