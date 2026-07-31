@@ -43,26 +43,30 @@ async def send_webapp_error(message: Message, error: str):
 
 
 async def process_webapp_data(message: Message):
+    logger.info(f"Received web_app_data from user {message.from_user.id}: {message.web_app_data.data}")
     try:
         data = json.loads(message.web_app_data.data)
         action = data.get("action")
+        logger.info(f"Processing action: {action}, data: {data}")
         
         if action == "booking":
             await process_booking(message, data)
         elif action == "contest":
             await process_contest(message, data)
         else:
+            logger.warning(f"Unknown action: {action}")
             await message.answer(
                 "❌ Неизвестное действие.",
                 reply_markup=get_back_to_start_keyboard(),
             )
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error: {e}, raw data: {message.web_app_data.data}")
         await message.answer(
             "❌ Ошибка обработки данных.",
             reply_markup=get_back_to_start_keyboard(),
         )
     except Exception as e:
-        logger.error(f"Error processing webapp data: {e}")
+        logger.error(f"Error processing webapp data: {e}", exc_info=True)
         await message.answer(
             "❌ Произошла ошибка. Попробуйте позже.",
             reply_markup=get_back_to_start_keyboard(),
@@ -76,7 +80,10 @@ async def process_booking(message: Message, data: dict):
     client_phone = data.get("client_phone")
     notes = data.get("notes", "")
     
+    logger.info(f"Booking request: service_id={service_id}, time_slot_id={time_slot_id}, name={client_name}, phone={client_phone}")
+    
     if not all([service_id, time_slot_id, client_name, client_phone]):
+        logger.warning(f"Missing required fields: service_id={service_id}, time_slot_id={time_slot_id}, name={client_name}, phone={client_phone}")
         await send_webapp_error(message, "Не все данные заполнены.")
         return
     
@@ -96,8 +103,10 @@ async def process_booking(message: Message, data: dict):
             )
             session.add(user)
             await session.flush()
+            logger.info(f"Created new user: {user.id}")
         else:
             user.phone = client_phone
+            logger.info(f"Existing user: {user.id}")
         
         result = await session.execute(
             select(Service).where(Service.id == service_id)
@@ -105,15 +114,26 @@ async def process_booking(message: Message, data: dict):
         service = result.scalar_one_or_none()
         
         if not service:
+            logger.warning(f"Service not found: {service_id}")
             await send_webapp_error(message, "Услуга не найдена.")
             return
+        
+        logger.info(f"Found service: {service.id} - {service.name}")
         
         result = await session.execute(
             select(TimeSlot).where(TimeSlot.id == time_slot_id)
         )
         time_slot = result.scalar_one_or_none()
         
-        if not time_slot or time_slot.current_bookings >= time_slot.max_bookings:
+        if not time_slot:
+            logger.warning(f"TimeSlot not found: {time_slot_id}")
+            await send_webapp_error(message, "Это время уже занято. Выберите другое.")
+            return
+        
+        logger.info(f"Found time_slot: {time_slot.id}, current_bookings={time_slot.current_bookings}, max_bookings={time_slot.max_bookings}")
+        
+        if time_slot.current_bookings >= time_slot.max_bookings:
+            logger.warning(f"TimeSlot fully booked: {time_slot.id}")
             await send_webapp_error(message, "Это время уже занято. Выберите другое.")
             return
         
@@ -132,17 +152,7 @@ async def process_booking(message: Message, data: dict):
         await session.commit()
         await session.refresh(booking)
         
-        # Send response back to WebApp
-        webapp_response = {
-            "ok": True,
-            "booking_id": booking.id,
-            "service_name": service.name,
-            "date": time_slot.date.strftime('%d.%m.%Y'),
-            "time": time_slot.start_time,
-            "client_name": client_name,
-            "client_phone": client_phone,
-            "price": service.price,
-        }
+        logger.info(f"Booking created: {booking.id}")
         
         result = InlineQueryResultArticle(
             id=str(booking.id),
@@ -189,8 +199,13 @@ async def process_booking(message: Message, data: dict):
 
 async def process_contest(message: Message, data: dict):
     answer = data.get("answer")
+    client_name = data.get("client_name")
+    client_phone = data.get("client_phone")
+    
+    logger.info(f"Contest request: answer={answer}, name={client_name}, phone={client_phone}")
     
     if not answer:
+        logger.warning("Missing answer in contest request")
         await send_webapp_error(message, "Ответ не указан.")
         return
     
@@ -209,6 +224,9 @@ async def process_contest(message: Message, data: dict):
             )
             session.add(user)
             await session.flush()
+            logger.info(f"Created new user for contest: {user.id}")
+        else:
+            logger.info(f"Existing user for contest: {user.id}")
         
         result = await session.execute(
             select(ContestEntry).where(ContestEntry.user_id == user.id)
@@ -216,6 +234,7 @@ async def process_contest(message: Message, data: dict):
         existing = result.scalar_one_or_none()
         
         if existing:
+            logger.warning(f"User already participated in contest: {user.id}")
             await send_webapp_error(message, "Вы уже участвовали в конкурсе!")
             return
         
@@ -226,11 +245,7 @@ async def process_contest(message: Message, data: dict):
         session.add(entry)
         await session.commit()
         
-        # Send response back to WebApp
-        webapp_response = {
-            "ok": True,
-            "message": "Спасибо за участие!",
-        }
+        logger.info(f"Contest entry created for user: {user.id}")
         
         result = InlineQueryResultArticle(
             id="contest_" + str(user.id),
