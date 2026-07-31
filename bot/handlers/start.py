@@ -4,6 +4,7 @@ from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+import logging
 
 from bot.config import settings
 from bot.database import get_session
@@ -16,6 +17,12 @@ from bot.keyboards.reply import (
 )
 
 router = Router()
+logger = logging.getLogger(__name__)
+
+
+@router.message(F.web_app_data)
+async def debug_webapp_data(message: Message):
+    logger.info(f"DEBUG: web_app_data received: {message.web_app_data.data}")
 
 
 @router.message(CommandStart())

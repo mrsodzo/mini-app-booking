@@ -55,6 +55,11 @@ TIME_SLOTS = [
 
 
 async def init_default_data(session: AsyncSession):
+    # Check if services already exist
+    result = await session.execute(text("SELECT COUNT(*) FROM services"))
+    if result.scalar() > 0:
+        return
+    
     for service_data in SERVICES:
         service = Service(**service_data)
         session.add(service)

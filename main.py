@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from contextlib import asynccontextmanager
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -10,7 +9,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from bot.config import settings
 from bot.database import init_db, close_db, async_session_maker
 from bot.handlers import router as main_router
-from bot.init_data import init_default_data, ensure_time_slots
+from bot.init_data import init_default_data, ensure_time_slots, ensure_admin
 
 
 logging.basicConfig(
@@ -20,23 +19,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@asynccontextmanager
-async def lifespan():
-    await init_db()
-    
-    async with async_session_maker() as session:
-        await init_default_data(session)
-        await ensure_time_slots(session)
-    
-    logger.info("Database initialized")
-    yield
-    await close_db()
-
-
 async def main():
     if not settings.bot_token or settings.bot_token == "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz":
         logger.error("BOT_TOKEN not set! Please create .env file from .env.example")
         return
+    
+    # Initialize DB before starting bot
+    await init_db()
+    async with async_session_maker() as session:
+        await init_default_data(session)
+        await ensure_time_slots(session)
+        await ensure_admin(session)
+    logger.info("Database initialized")
     
     bot = Bot(
         token=settings.bot_token,
@@ -52,6 +46,7 @@ async def main():
         await dp.start_polling(bot)
     finally:
         await bot.session.close()
+        await close_db()
 
 
 if __name__ == "__main__":
