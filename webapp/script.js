@@ -437,9 +437,9 @@ elements.clientPhone?.addEventListener('input', e => {
         setLoading(elements.btnSubmit, true);
 
         try {
-            await sendToBot(data);
+            const response = await sendToBot(data);
             markSlotBooked(state.selectedDate.toISOString().split('T')[0], state.selectedTime);
-            showSuccess(data);
+            showSuccess(response);
         } catch (err) {
             console.error('Booking error:', err);
             showErrorScreen(err.message || 'Не удалось создать запись. Попробуйте позже.');
@@ -463,28 +463,40 @@ elements.clientPhone?.addEventListener('input', e => {
                 return;
             }
 
-            const timeout = setTimeout(() => reject(new Error('Timeout')), 10000);
+            const timeout = setTimeout(() => reject(new Error('Timeout')), 15000);
 
             function handler(event) {
-                if (event.data === 'web_app_close' || event.data === 'web_app_data_sent') {
+                if (event.data && typeof event.data === 'string') {
+                    try {
+                        const response = JSON.parse(event.data);
+                        if (response.ok) {
+                            clearTimeout(timeout);
+                            window.removeEventListener('message', handler);
+                            resolve(response);
+                        } else {
+                            clearTimeout(timeout);
+                            window.removeEventListener('message', handler);
+                            reject(new Error(response.error || 'Server error'));
+                        }
+                    } catch (e) {
+                        // Not a JSON response, ignore
+                    }
+                }
+                
+                if (event.data === 'web_app_close') {
                     clearTimeout(timeout);
                     window.removeEventListener('message', handler);
-                    resolve({ ok: true });
+                    reject(new Error('WebApp closed'));
                 }
             }
 
             window.addEventListener('message', handler);
 
             WebApp.sendData(JSON.stringify(data));
-            
-            // Close WebApp immediately after sending data
-            setTimeout(() => {
-                WebApp.close();
-            }, 100);
         });
     }
 
-    function showSuccess(data) {
+    function showSuccess(response) {
         const service = state.selectedService;
         const dateStr = formatDate(state.selectedDate);
 
@@ -503,15 +515,19 @@ elements.clientPhone?.addEventListener('input', e => {
             </div>
             <div class="detail-row">
                 <span class="detail-label">Имя</span>
-                <span class="detail-value">${data.client_name}</span>
+                <span class="detail-value">${response.client_name}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Телефон</span>
-                <span class="detail-value">${formatPhoneDisplay(data.client_phone)}</span>
+                <span class="detail-value">${formatPhoneDisplay(response.client_phone)}</span>
             </div>
             <div class="detail-row">
                 <span class="detail-label">Цена</span>
-                <span class="detail-value">${service.price}₽</span>
+                <span class="detail-value">${response.price}₽</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Номер заказа</span>
+                <span class="detail-value">#${response.booking_id}</span>
             </div>
         `;
 
@@ -558,7 +574,7 @@ elements.clientPhone?.addEventListener('input', e => {
         setLoading(elements.btnContestSubmit, true);
 
         try {
-            await sendToBot({
+            const response = await sendToBot({
                 action: 'contest',
                 answer: elements.contestAnswer.value.trim(),
                 client_name: name,

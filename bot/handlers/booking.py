@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 
 from aiogram import Router, F
-from aiogram.types import Message, WebAppData
+from aiogram.types import Message, WebAppData, InlineQueryResultArticle, InputTextMessageContent
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,32 @@ from bot.keyboards.reply import get_back_to_start_keyboard, get_start_keyboard
 
 router = Router()
 logger = logging.getLogger(__name__)
+
+
+async def send_webapp_error(message: Message, error: str):
+    """Send error response back to WebApp via answer_web_app_query"""
+    try:
+        webapp_response = {
+            "ok": False,
+            "error": error,
+        }
+        
+        result = InlineQueryResultArticle(
+            id="error_" + str(message.message_id),
+            title="Ошибка",
+            input_message_content=InputTextMessageContent(
+                message_text=json.dumps(webapp_response),
+            ),
+        )
+        await message.bot.answer_web_app_query(message.web_app_data.query_id, result)
+    except Exception as e:
+        logger.error(f"Failed to send webapp error: {e}")
+    
+    # Also send a visible message to user
+    await message.answer(
+        f"❌ {error}",
+        reply_markup=get_back_to_start_keyboard(),
+    )
 
 
 async def process_webapp_data(message: Message):
@@ -51,10 +77,7 @@ async def process_booking(message: Message, data: dict):
     notes = data.get("notes", "")
     
     if not all([service_id, time_slot_id, client_name, client_phone]):
-        await message.answer(
-            "❌ Не все данные заполнены.",
-            reply_markup=get_back_to_start_keyboard(),
-        )
+        await send_webapp_error(message, "Не все данные заполнены.")
         return
     
     async for session in get_session():
@@ -82,10 +105,7 @@ async def process_booking(message: Message, data: dict):
         service = result.scalar_one_or_none()
         
         if not service:
-            await message.answer(
-                "❌ Услуга не найдена.",
-                reply_markup=get_back_to_start_keyboard(),
-            )
+            await send_webapp_error(message, "Услуга не найдена.")
             return
         
         result = await session.execute(
@@ -94,10 +114,7 @@ async def process_booking(message: Message, data: dict):
         time_slot = result.scalar_one_or_none()
         
         if not time_slot or time_slot.current_bookings >= time_slot.max_bookings:
-            await message.answer(
-                "❌ Это время уже занято. Выберите другое.",
-                reply_markup=get_back_to_start_keyboard(),
-            )
+            await send_webapp_error(message, "Это время уже занято. Выберите другое.")
             return
         
         time_slot.current_bookings += 1
@@ -114,6 +131,27 @@ async def process_booking(message: Message, data: dict):
         session.add(booking)
         await session.commit()
         await session.refresh(booking)
+        
+        # Send response back to WebApp
+        webapp_response = {
+            "ok": True,
+            "booking_id": booking.id,
+            "service_name": service.name,
+            "date": time_slot.date.strftime('%d.%m.%Y'),
+            "time": time_slot.start_time,
+            "client_name": client_name,
+            "client_phone": client_phone,
+            "price": service.price,
+        }
+        
+        result = InlineQueryResultArticle(
+            id=str(booking.id),
+            title="Запись подтверждена",
+            input_message_content=InputTextMessageContent(
+                message_text=json.dumps(webapp_response),
+            ),
+        )
+        await message.bot.answer_web_app_query(message.web_app_data.query_id, result)
         
         user_msg = (
             f"✅ <b>Вы успешно записались!</b>\n\n"
@@ -153,10 +191,7 @@ async def process_contest(message: Message, data: dict):
     answer = data.get("answer")
     
     if not answer:
-        await message.answer(
-            "❌ Ответ не указан.",
-            reply_markup=get_back_to_start_keyboard(),
-        )
+        await send_webapp_error(message, "Ответ не указан.")
         return
     
     async for session in get_session():
@@ -181,10 +216,7 @@ async def process_contest(message: Message, data: dict):
         existing = result.scalar_one_or_none()
         
         if existing:
-            await message.answer(
-                "❌ Вы уже участвовали в конкурсе!",
-                reply_markup=get_back_to_start_keyboard(),
-            )
+            await send_webapp_error(message, "Вы уже участвовали в конкурсе!")
             return
         
         entry = ContestEntry(
@@ -193,6 +225,21 @@ async def process_contest(message: Message, data: dict):
         )
         session.add(entry)
         await session.commit()
+        
+        # Send response back to WebApp
+        webapp_response = {
+            "ok": True,
+            "message": "Спасибо за участие!",
+        }
+        
+        result = InlineQueryResultArticle(
+            id="contest_" + str(user.id),
+            title="Участие принято",
+            input_message_content=InputTextMessageContent(
+                message_text=json.dumps(webapp_response),
+            ),
+        )
+        await message.bot.answer_web_app_query(message.web_app_data.query_id, result)
         
         await message.answer(
             "🎁 <b>Спасибо за участие!</b>\n\n"
