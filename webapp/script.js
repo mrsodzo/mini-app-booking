@@ -464,8 +464,11 @@ elements.clientPhone?.addEventListener('input', e => {
             }
 
             WebApp.sendData(JSON.stringify(data));
-            // sendData closes the WebApp immediately - no response possible
-            setTimeout(() => resolve({ ok: true }), 100);
+            // Explicitly close WebApp after sendData
+            setTimeout(() => {
+                WebApp.close();
+                resolve({ ok: true });
+            }, 100);
         });
     }
 
