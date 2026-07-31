@@ -67,8 +67,9 @@ async def init_default_data(session: AsyncSession):
     
     base_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     
+    # Create slots for 30 days to cover any date user might select
     for service_id in service_ids:
-        for day_offset in range(3):
+        for day_offset in range(30):
             current_date = base_date + timedelta(days=day_offset)
             for time_str in TIME_SLOTS:
                 hour, minute = map(int, time_str.split(":"))
@@ -92,5 +93,43 @@ async def init_default_data(session: AsyncSession):
         is_superadmin=1,
     )
     session.add(admin)
+    
+    await session.commit()
+
+
+async def ensure_time_slots(session: AsyncSession):
+    """Ensure time slots exist for the next 30 days"""
+    services = await session.execute(
+        text("SELECT id FROM services WHERE is_active = 1")
+    )
+    service_ids = [row[0] for row in services.fetchall()]
+    
+    base_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    for service_id in service_ids:
+        for day_offset in range(30):
+            current_date = base_date + timedelta(days=day_offset)
+            for time_str in TIME_SLOTS:
+                existing = await session.execute(
+                    text("SELECT id FROM time_slots WHERE service_id = :sid AND date = :dt AND start_time = :st"),
+                    {"sid": service_id, "dt": current_date, "st": time_str}
+                )
+                if existing.scalar_one_or_none():
+                    continue
+                    
+                hour, minute = map(int, time_str.split(":"))
+                start_time = current_date.replace(hour=hour, minute=minute)
+                end_time = start_time + timedelta(minutes=30)
+                
+                time_slot = TimeSlot(
+                    service_id=service_id,
+                    date=current_date,
+                    start_time=time_str,
+                    end_time=end_time.strftime("%H:%M"),
+                    is_available=1,
+                    max_bookings=1,
+                    current_bookings=0,
+                )
+                session.add(time_slot)
     
     await session.commit()

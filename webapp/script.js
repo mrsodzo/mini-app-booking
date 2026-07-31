@@ -453,7 +453,8 @@ elements.clientPhone?.addEventListener('input', e => {
         const serviceIndex = CONFIG.SERVICES.findIndex(s => s.id === state.selectedService.id);
         const dateIndex = generateDates().findIndex(d => d.toISOString().split('T')[0] === dateStr);
         const timeIndex = CONFIG.TIME_SLOTS.indexOf(time);
-        return (serviceIndex * 3 + dateIndex) * 5 + timeIndex + 1;
+        // Database now has 30 days per service (updated in init_data.py)
+        return (serviceIndex * 30 + dateIndex) * 5 + timeIndex + 1;
     }
 
     function sendToBot(data) {

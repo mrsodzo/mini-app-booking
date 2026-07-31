@@ -10,7 +10,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from bot.config import settings
 from bot.database import init_db, close_db, async_session_maker
 from bot.handlers import router as main_router
-from bot.init_data import init_default_data
+from bot.init_data import init_default_data, ensure_time_slots
 
 
 logging.basicConfig(
@@ -26,6 +26,7 @@ async def lifespan():
     
     async with async_session_maker() as session:
         await init_default_data(session)
+        await ensure_time_slots(session)
     
     logger.info("Database initialized")
     yield
