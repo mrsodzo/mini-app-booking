@@ -1,6 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from bot.models import Service, TimeSlot, ServiceType, Admin
+from bot.config import settings
 from datetime import datetime, timedelta
 import json
 
@@ -87,14 +88,25 @@ async def init_default_data(session: AsyncSession):
                 )
                 session.add(time_slot)
     
-    admin = Admin(
-        telegram_id=123456789,
-        username="admin",
-        is_superadmin=1,
-    )
-    session.add(admin)
-    
     await session.commit()
+
+
+async def ensure_admin(session: AsyncSession):
+    """Ensure admin exists"""
+    if not settings.admin_chat_id:
+        return
+    result = await session.execute(
+        text("SELECT id FROM admins WHERE telegram_id = :tid"),
+        {"tid": settings.admin_chat_id}
+    )
+    if not result.scalar_one_or_none():
+        admin = Admin(
+            telegram_id=settings.admin_chat_id,
+            username="admin",
+            is_superadmin=1,
+        )
+        session.add(admin)
+        await session.commit()
 
 
 async def ensure_time_slots(session: AsyncSession):
