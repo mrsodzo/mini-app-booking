@@ -25,13 +25,9 @@ async def send_webapp_error(message: Message, error: str):
 
 
 async def process_webapp_data(message: Message):
-    logger.info(f"=== HANDLER CALLED ===")
-    logger.info(f"Received web_app_data from user {message.from_user.id}: {message.web_app_data.data}")
-    logger.info(f"Full message: {message.model_dump_json()}")
     try:
         data = json.loads(message.web_app_data.data)
         action = data.get("action")
-        logger.info(f"Processing action: {action}, data: {data}")
         
         if action == "booking":
             await process_booking(message, data)
