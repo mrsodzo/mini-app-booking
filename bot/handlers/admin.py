@@ -2,6 +2,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.config import settings
@@ -42,7 +43,11 @@ async def admin_callback(callback: CallbackQuery):
 async def show_bookings(event, filter_type: str):
     bookings = []
     async for session in get_session():
-        query = select(Booking).join(User).join(Service).join(TimeSlot)
+        query = select(Booking).options(
+            selectinload(Booking.user),
+            selectinload(Booking.service),
+            selectinload(Booking.time_slot)
+        )
         
         if filter_type == "pending":
             query = query.where(Booking.status.in_(["new", "confirmed"]))
@@ -76,7 +81,7 @@ async def show_bookings(event, filter_type: str):
 async def show_contest_entries(event):
     async for session in get_session():
         result = await session.execute(
-            select(ContestEntry).join(User).order_by(ContestEntry.created_at.desc())
+            select(ContestEntry).options(selectinload(ContestEntry.user)).order_by(ContestEntry.created_at.desc())
         )
         entries = result.scalars().all()
     
@@ -108,7 +113,15 @@ async def booking_action(callback: CallbackQuery):
     action, booking_id = callback.data.split("_")[1], int(callback.data.split("_")[2])
     
     async for session in get_session():
-        result = await session.execute(select(Booking).where(Booking.id == booking_id))
+        result = await session.execute(
+            select(Booking)
+            .options(
+                selectinload(Booking.user),
+                selectinload(Booking.service),
+                selectinload(Booking.time_slot)
+            )
+            .where(Booking.id == booking_id)
+        )
         booking = result.scalar_one_or_none()
         
         if not booking:

@@ -3,6 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
@@ -71,6 +72,7 @@ async def show_my_bookings(message: Message):
         result = await session.execute(
             select(Booking)
             .where(Booking.user_id == user.id)
+            .options(selectinload(Booking.service), selectinload(Booking.time_slot))
             .order_by(Booking.created_at.desc())
         )
         bookings = result.scalars().all()
@@ -180,6 +182,7 @@ async def show_my_bookings_callback(callback: CallbackQuery):
         result = await session.execute(
             select(Booking)
             .where(Booking.user_id == user.id)
+            .options(selectinload(Booking.service), selectinload(Booking.time_slot))
             .order_by(Booking.created_at.desc())
         )
         bookings = result.scalars().all()
@@ -217,7 +220,13 @@ async def cmd_admin(message: Message):
     
     async for session in get_session():
         result = await session.execute(
-            select(Booking).order_by(Booking.created_at.desc()).limit(20)
+            select(Booking)
+            .options(
+                selectinload(Booking.service),
+                selectinload(Booking.time_slot)
+            )
+            .order_by(Booking.created_at.desc())
+            .limit(20)
         )
         bookings = result.scalars().all()
     
@@ -258,13 +267,22 @@ async def admin_callbacks(callback: CallbackQuery):
     async for session in get_session():
         if callback.data == "admin_all_bookings":
             result = await session.execute(
-                select(Booking).order_by(Booking.created_at.desc())
+                select(Booking)
+                .options(
+                    selectinload(Booking.service),
+                    selectinload(Booking.time_slot)
+                )
+                .order_by(Booking.created_at.desc())
             )
             bookings = result.scalars().all()
             status_filter = "Все"
         elif callback.data == "admin_pending_bookings":
             result = await session.execute(
                 select(Booking)
+                .options(
+                    selectinload(Booking.service),
+                    selectinload(Booking.time_slot)
+                )
                 .where(Booking.status.in_(["new", "confirmed"]))
                 .order_by(Booking.created_at.desc())
             )
@@ -273,6 +291,10 @@ async def admin_callbacks(callback: CallbackQuery):
         elif callback.data == "admin_completed_bookings":
             result = await session.execute(
                 select(Booking)
+                .options(
+                    selectinload(Booking.service),
+                    selectinload(Booking.time_slot)
+                )
                 .where(Booking.status.in_(["completed", "cancelled"]))
                 .order_by(Booking.created_at.desc())
             )
@@ -319,7 +341,13 @@ async def complete_booking(callback: CallbackQuery):
     
     async for session in get_session():
         result = await session.execute(
-            select(Booking).where(Booking.id == booking_id)
+            select(Booking)
+            .options(
+                selectinload(Booking.user),
+                selectinload(Booking.service),
+                selectinload(Booking.time_slot)
+            )
+            .where(Booking.id == booking_id)
         )
         booking = result.scalar_one_or_none()
         
@@ -361,7 +389,13 @@ async def cancel_booking_admin(callback: CallbackQuery):
     
     async for session in get_session():
         result = await session.execute(
-            select(Booking).where(Booking.id == booking_id)
+            select(Booking)
+            .options(
+                selectinload(Booking.user),
+                selectinload(Booking.service),
+                selectinload(Booking.time_slot)
+            )
+            .where(Booking.id == booking_id)
         )
         booking = result.scalar_one_or_none()
         
