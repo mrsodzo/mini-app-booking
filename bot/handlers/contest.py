@@ -14,34 +14,6 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 
-@router.message(F.web_app_data)
-async def handle_webapp_data(message: Message):
-    try:
-        data = json.loads(message.web_app_data.data)
-        action = data.get("action")
-        
-        if action == "contest":
-            await process_contest(message, data)
-        elif action == "booking":
-            pass
-        else:
-            await message.answer(
-                "❌ Неизвестное действие.",
-                reply_markup=get_back_to_start_keyboard(),
-            )
-    except json.JSONDecodeError:
-        await message.answer(
-            "❌ Ошибка обработки данных.",
-            reply_markup=get_back_to_start_keyboard(),
-        )
-    except Exception as e:
-        logger.error(f"Error processing webapp data: {e}")
-        await message.answer(
-            "❌ Произошла ошибка. Попробуйте позже.",
-            reply_markup=get_back_to_start_keyboard(),
-        )
-
-
 async def process_contest(message: Message, data: dict):
     answer = data.get("answer", "").strip()
     

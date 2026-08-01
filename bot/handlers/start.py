@@ -20,11 +20,6 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 
-@router.message(F.web_app_data)
-async def debug_webapp_data(message: Message):
-    logger.info(f"DEBUG: web_app_data received: {message.web_app_data.data}")
-
-
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
@@ -58,8 +53,98 @@ async def cmd_start(message: Message, state: FSMContext):
     await message.answer(text, reply_markup=get_start_keyboard(), parse_mode="HTML")
 
 
+@router.message(F.text == "📋 Мои записи")
+async def show_my_bookings(message: Message):
+    async for session in get_session():
+        result = await session.execute(
+            select(User).where(User.telegram_id == message.from_user.id)
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            await message.answer(
+                "❌ Пользователь не найден. Нажмите /start",
+                reply_markup=get_start_keyboard(),
+            )
+            return
+        
+        result = await session.execute(
+            select(Booking)
+            .where(Booking.user_id == user.id)
+            .order_by(Booking.created_at.desc())
+        )
+        bookings = result.scalars().all()
+    
+    if not bookings:
+        await message.answer(
+            "📋 У вас пока нет записей.\n\nНажмите кнопку ниже, чтобы записаться!",
+            reply_markup=get_start_keyboard(),
+        )
+        return
+    
+    text = "📋 <b>Ваши записи:</b>\n\n"
+    for booking in bookings:
+        status_emoji = {
+            "new": "🆕",
+            "confirmed": "✅",
+            "completed": "✅",
+            "cancelled": "❌",
+        }.get(booking.status, "❓")
+        
+        text += (
+            f"{status_emoji} <b>#{booking.id}</b> — {booking.service.name}\n"
+            f"📅 {booking.time_slot.date.strftime('%d.%m.%Y')} в {booking.time_slot.start_time}\n"
+            f"Статус: {booking.status}\n\n"
+        )
+    
+    await message.answer(text, reply_markup=get_start_keyboard(), parse_mode="HTML")
+
+
+@router.message(F.text == "💇 Услуги")
+async def show_services(message: Message):
+    await message.answer(
+        "💇 <b>Наши услуги:</b>\n\n"
+        "✂️ <b>Стрижка мужская</b> — 1500₽ (30 мин)\n"
+        "🧔 <b>Стрижка бороды</b> — 800₽ (20 мин)\n"
+        "🎨 <b>Окрашивание волос</b> — 4500₽ (90 мин)\n"
+        "✨ <b>Укладка волос</b> — 1000₽ (30 мин)\n"
+        "💇+🧔 <b>Комплекс: стрижка + борода</b> — 2000₽ (45 мин)\n\n"
+        "Нажмите кнопку ниже, чтобы записаться!",
+        reply_markup=get_start_keyboard(),
+        parse_mode="HTML",
+    )
+
+
+@router.message(F.text == "📞 Контакты")
+async def show_contacts(message: Message):
+    await message.answer(
+        "📞 <b>Контакты</b>\n\n"
+        "📍 Наш салон: ул. Примерная, д. 1\n"
+        "📱 Телефон: +7 (999) 123-45-67\n"
+        "🕐 Режим работы: ежедневно 10:00–21:00\n\n"
+        "Мы всегда на связи!",
+        reply_markup=get_start_keyboard(),
+        parse_mode="HTML",
+    )
+
+
+@router.message(F.text == "⬅️ В главное меню")
+async def back_to_start(message: Message):
+    text = (
+        f"👋 Привет, {message.from_user.first_name}!\n\n"
+        f"Добро пожаловать в <b>Beauty Studio</b> 💇‍♀️\n\n"
+        f"Здесь вы можете:\n"
+        f"📅 Записаться на услугу\n"
+        f"📋 Посмотреть свои записи\n"
+        f"🎁 Участвовать в конкурсе и выиграть скидку 20%\n\n"
+        f"Выберите действие:"
+    )
+    
+    await message.answer(text, reply_markup=get_start_keyboard(), parse_mode="HTML")
+
+
 @router.callback_query(F.data == "back_to_start")
-async def back_to_start(callback: CallbackQuery):
+async def back_to_start_callback(callback: CallbackQuery):
     await callback.answer()
     
     text = (
@@ -76,7 +161,7 @@ async def back_to_start(callback: CallbackQuery):
 
 
 @router.callback_query(F.data == "my_bookings")
-async def show_my_bookings(callback: CallbackQuery):
+async def show_my_bookings_callback(callback: CallbackQuery):
     await callback.answer()
     
     async for session in get_session():

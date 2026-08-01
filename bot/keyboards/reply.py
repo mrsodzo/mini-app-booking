@@ -8,30 +8,25 @@ from aiogram.types import (
 from bot.config import settings
 
 
-def get_start_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(
-                text="📅 Записаться",
-                web_app=WebAppInfo(url=f"{settings.webapp_url}/booking.html"),
-            ),
+def get_start_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(text="📅 Записаться", web_app=WebAppInfo(url=f"{settings.webapp_url}/booking.html")),
+            ],
+            [
+                KeyboardButton(text="📋 Мои записи"),
+                KeyboardButton(text="💇 Услуги"),
+            ],
+            [
+                KeyboardButton(text="🎁 Конкурс (скидка 20%)", web_app=WebAppInfo(url=f"{settings.webapp_url}/contest.html")),
+            ],
+            [
+                KeyboardButton(text="📞 Контакты"),
+            ],
         ],
-        [
-            InlineKeyboardButton(text="📋 Мои записи", callback_data="my_bookings"),
-        ],
-        [
-            InlineKeyboardButton(text="💇 Услуги", callback_data="services"),
-        ],
-        [
-            InlineKeyboardButton(
-                text="🎁 Конкурс (скидка 20%)",
-                web_app=WebAppInfo(url=f"{settings.webapp_url}/contest.html"),
-            ),
-        ],
-        [
-            InlineKeyboardButton(text="📞 Контакты", callback_data="contacts"),
-        ],
-    ])
+        resize_keyboard=True,
+    )
 
 
 def get_services_keyboard() -> InlineKeyboardMarkup:

@@ -13,7 +13,7 @@ from bot.init_data import init_default_data, ensure_time_slots, ensure_admin
 
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -39,6 +39,14 @@ async def main():
     
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(main_router)
+    
+    @dp.update()
+    async def log_update(update, data):
+        logger.debug(f"UPDATE: {update.update_id}, type: {type(update).__name__}")
+        if update.message:
+            logger.debug(f"  Message: {update.message.message_id}, web_app_data: {bool(update.message.web_app_data)}, text: {update.message.text}")
+        if update.callback_query:
+            logger.debug(f"  Callback: {update.callback_query.data}")
     
     logger.info("Starting bot...")
     

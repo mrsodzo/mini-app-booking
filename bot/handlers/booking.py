@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 
 from aiogram import Router, F
-from aiogram.types import Message, WebAppData, InlineQueryResultArticle, InputTextMessageContent
+from aiogram.types import Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,25 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 async def send_webapp_error(message: Message, error: str):
-    """Send error response back to WebApp via answer_web_app_query"""
-    try:
-        webapp_response = {
-            "ok": False,
-            "error": error,
-        }
-        
-        result = InlineQueryResultArticle(
-            id="error_" + str(message.message_id),
-            title="Ошибка",
-            input_message_content=InputTextMessageContent(
-                message_text=json.dumps(webapp_response),
-            ),
-        )
-        await message.bot.answer_web_app_query(message.web_app_data.query_id, result)
-    except Exception as e:
-        logger.error(f"Failed to send webapp error: {e}")
-    
-    # Also send a visible message to user
+    """Send error message to user"""
     await message.answer(
         f"❌ {error}",
         reply_markup=get_back_to_start_keyboard(),
@@ -43,7 +25,9 @@ async def send_webapp_error(message: Message, error: str):
 
 
 async def process_webapp_data(message: Message):
+    logger.info(f"=== HANDLER CALLED ===")
     logger.info(f"Received web_app_data from user {message.from_user.id}: {message.web_app_data.data}")
+    logger.info(f"Full message: {message.model_dump_json()}")
     try:
         data = json.loads(message.web_app_data.data)
         action = data.get("action")
@@ -146,22 +130,13 @@ async def process_booking(message: Message, data: dict):
             client_name=client_name,
             client_phone=client_phone,
             notes=notes,
-            status="new",
+            status="pending",
         )
         session.add(booking)
         await session.commit()
         await session.refresh(booking)
-        
+
         logger.info(f"Booking created: {booking.id}")
-        
-        result = InlineQueryResultArticle(
-            id=str(booking.id),
-            title="Запись подтверждена",
-            input_message_content=InputTextMessageContent(
-                message_text=json.dumps(webapp_response),
-            ),
-        )
-        await message.bot.answer_web_app_query(message.web_app_data.query_id, result)
         
         user_msg = (
             f"✅ <b>Вы успешно записались!</b>\n\n"
@@ -246,15 +221,6 @@ async def process_contest(message: Message, data: dict):
         await session.commit()
         
         logger.info(f"Contest entry created for user: {user.id}")
-        
-        result = InlineQueryResultArticle(
-            id="contest_" + str(user.id),
-            title="Участие принято",
-            input_message_content=InputTextMessageContent(
-                message_text=json.dumps(webapp_response),
-            ),
-        )
-        await message.bot.answer_web_app_query(message.web_app_data.query_id, result)
         
         await message.answer(
             "🎁 <b>Спасибо за участие!</b>\n\n"
