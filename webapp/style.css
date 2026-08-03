@@ -266,7 +266,7 @@ body {
 .service-price {
     font-weight: 700;
     font-size: 18px;
-    color: var(--accent-primary);
+    color: var(--accent-gold);
     flex-shrink: 0;
 }
 

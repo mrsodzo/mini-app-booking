@@ -1,40 +1,8 @@
 (function() {
     'use strict';
 
-    // Simple debug logger visible in WebApp
-    const debugLogs = [];
     function debugLog(...args) {
-        const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-        const entry = `[${new Date().toLocaleTimeString()}] ${msg}`;
-        debugLogs.push(entry);
-        if (debugLogs.length > 50) debugLogs.shift();
         console.log(...args);
-        updateDebugPanel();
-    }
-    function updateDebugPanel() {
-        const panel = document.getElementById('debug-panel');
-        if (panel) panel.textContent = debugLogs.join('\n');
-    }
-    function initDebugPanel() {
-        const panel = document.createElement('div');
-        panel.id = 'debug-panel';
-        panel.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:200px;overflow:auto;background:#111;color:#0f0;font:11px monospace;padding:8px;z-index:9999;display:none;white-space:pre-wrap;';
-        document.body.appendChild(panel);
-        let clickCount = 0;
-        document.addEventListener('click', e => {
-            if (e.target.closest('.debug-toggle')) return;
-            clickCount++;
-            if (clickCount === 5) {
-                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-                clickCount = 0;
-            }
-        });
-        const btn = document.createElement('button');
-        btn.className = 'debug-toggle';
-        btn.textContent = '🐛 Debug';
-        btn.style.cssText = 'position:fixed;bottom:10px;right:10px;z-index:10000;padding:8px 12px;background:#333;color:#fff;border:none;border-radius:4px;font:12px monospace;';
-        btn.onclick = () => panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-        document.body.appendChild(btn);
     }
 
     const WebApp = window.Telegram?.WebApp;
@@ -44,7 +12,6 @@
         WebApp.MainButton.hide();
     }
 
-    initDebugPanel();
     debugLog('WebApp initialized', { WebApp: !!WebApp, userAgent: navigator.userAgent });
 
     const CONFIG = {
