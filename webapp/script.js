@@ -14,15 +14,9 @@
 
     debugLog('WebApp initialized', { WebApp: !!WebApp, userAgent: navigator.userAgent });
 
+    const API_BASE_URL = document.querySelector('meta[name="api-base-url"]')?.content || 'http://localhost:8080';
+
     const CONFIG = {
-        API_URL: '',
-        SERVICES: [
-            { id: 1, name: 'Стрижка мужская', description: 'Классическая мужская стрижка с укладкой', duration: 30, price: 1500, icon: '✂️' },
-            { id: 2, name: 'Стрижка бороды', description: 'Формирование и стрижка бороды', duration: 20, price: 800, icon: '🧔' },
-            { id: 3, name: 'Окрашивание волос', description: 'Полное окрашивание волос профессиональными красками', duration: 90, price: 4500, icon: '🎨' },
-            { id: 4, name: 'Укладка волос', description: 'Укладка волос феном/прибором', duration: 30, price: 1000, icon: '✨' },
-            { id: 5, name: 'Комплекс: стрижка + борода', description: 'Мужская стрижка и формирование бороды', duration: 45, price: 2000, icon: '💇‍♂️' },
-        ],
         TIME_SLOTS: ['10:00', '12:00', '14:00', '16:00', '18:00'],
         RIDDLES: [
             'Что можно держать в левой руке, но нельзя взять в правую?',
@@ -45,7 +39,7 @@
         selectedService: null,
         selectedDate: null,
         selectedTime: null,
-        availableSlots: {},
+        services: [],
         riddle: null,
     };
 
@@ -119,7 +113,6 @@
 
     function goBack() {
         switch (state.currentScreen) {
-            case 'screen-datetime':
             case 'screen-date':
                 showScreen('screen-services');
                 break;
@@ -155,17 +148,47 @@
         }
     }
 
-    function generateDates() {
-        const dates = [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        for (let i = 0; i < 30; i++) {
-            const date = new Date(today);
-            date.setDate(today.getDate() + i);
-            dates.push(date);
+    async function fetchServices() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/services`);
+            if (!response.ok) throw new Error('Failed to fetch services');
+            const data = await response.json();
+            state.services = data.services || [];
+            debugLog('Services loaded:', state.services);
+            return state.services;
+        } catch (err) {
+            debugLog('Error fetching services:', err);
+            showErrorScreen('Не удалось загрузить услуги. Проверьте соединение.');
+            return [];
         }
-        return dates;
+    }
+
+    async function fetchAvailableDates(serviceId) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/services/${serviceId}/dates`);
+            if (!response.ok) throw new Error('Failed to fetch dates');
+            const data = await response.json();
+            debugLog('Dates loaded:', data.dates);
+            return data.dates || [];
+        } catch (err) {
+            debugLog('Error fetching dates:', err);
+            showErrorScreen('Не удалось загрузить даты. Проверьте соединение.');
+            return [];
+        }
+    }
+
+    async function fetchAvailableSlots(serviceId, date) {
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/services/${serviceId}/dates/${date}/slots`);
+            if (!response.ok) throw new Error('Failed to fetch slots');
+            const data = await response.json();
+            debugLog('Slots loaded:', data.slots);
+            return data.slots || [];
+        } catch (err) {
+            debugLog('Error fetching slots:', err);
+            showErrorScreen('Не удалось загрузить время. Проверьте соединение.');
+            return [];
+        }
     }
 
     function formatDate(date) {
@@ -180,39 +203,24 @@
         return date.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric' });
     }
 
-    function loadAvailableSlots() {
-        state.availableSlots = {};
-        const dates = generateDates();
-        const saved = localStorage.getItem('bookedSlots');
-        const booked = saved ? JSON.parse(saved) : {};
-
-        dates.forEach(date => {
-            const dateKey = date.toISOString().split('T')[0];
-            state.availableSlots[dateKey] = {};
-            CONFIG.TIME_SLOTS.forEach(time => {
-                const key = `${dateKey}-${time}`;
-                state.availableSlots[dateKey][time] = !booked[key];
-            });
-        });
-    }
-
-    function markSlotBooked(dateKey, time) {
-        const saved = localStorage.getItem('bookedSlots');
-        const booked = saved ? JSON.parse(saved) : {};
-        const key = `${dateKey}-${time}`;
-        booked[key] = true;
-        localStorage.setItem('bookedSlots', JSON.stringify(booked));
-        loadAvailableSlots();
+    function getServiceIcon(serviceType) {
+        const icons = {
+            'haircut': '✂️',
+            'beard': '🧔',
+            'coloring': '🎨',
+            'styling': '✨',
+        };
+        return icons[serviceType] || '💇‍♀️';
     }
 
     function renderServices() {
-        const html = CONFIG.SERVICES.map(service => `
-            <li class="service-card" data-service-id="${service.id}" role="button" tabindex="0" aria-label="${service.name}, ${service.price}₽, ${service.duration} мин">
-                <span class="service-icon">${service.icon}</span>
+        const html = state.services.map(service => `
+            <li class="service-card" data-service-id="${service.id}" role="button" tabindex="0" aria-label="${service.name}, ${service.price}₽, ${service.duration_minutes} мин">
+                <span class="service-icon">${getServiceIcon(service.service_type)}</span>
                 <div class="service-info">
                     <span class="service-name">${service.name}</span>
                     <div class="service-meta">
-                        <span>${service.duration} мин</span>
+                        <span>${service.duration_minutes} мин</span>
                         <span>${service.description}</span>
                     </div>
                 </div>
@@ -233,12 +241,11 @@
         });
     }
 
-    function selectService(serviceId) {
-        const service = CONFIG.SERVICES.find(s => s.id === serviceId);
+    async function selectService(serviceId) {
+        const service = state.services.find(s => s.id === serviceId);
         if (!service) return;
 
         state.selectedService = service;
-        loadAvailableSlots();
 
         if (elements.dateServiceName) {
             elements.dateServiceName.textContent = service.name;
@@ -253,27 +260,35 @@
         if (elements.formPrice) {
             elements.formPrice.textContent = `${service.price}₽`;
         }
+        if (elements.selectedServiceDate) {
+            elements.selectedServiceDate.querySelector('.service-icon').textContent = getServiceIcon(service.service_type);
+            elements.selectedServiceDate.querySelector('.service-name').textContent = service.name;
+            elements.selectedServiceDate.querySelector('.service-price').textContent = `${service.price}₽`;
+        }
+        if (elements.selectedServiceTime) {
+            elements.selectedServiceTime.querySelector('.service-icon').textContent = getServiceIcon(service.service_type);
+            elements.selectedServiceTime.querySelector('.service-name').textContent = service.name;
+        }
 
-        renderDates();
+        const dates = await fetchAvailableDates(serviceId);
+        renderDates(dates);
         showScreen('screen-date');
     }
 
-    function renderDates() {
-        const dates = generateDates();
-        const html = dates.map(date => {
-            const dateKey = date.toISOString().split('T')[0];
-            const hasAvailable = Object.values(state.availableSlots[dateKey] || {}).some(v => v);
-            const isSelected = state.selectedDate?.toISOString().split('T')[0] === dateKey;
+    function renderDates(dates) {
+        const html = dates.map(dateObj => {
+            const date = new Date(dateObj.date + 'T00:00:00');
+            const isSelected = state.selectedDate?.toISOString().split('T')[0] === dateObj.date;
 
             return `
-                <div class="date-card${isSelected ? ' selected' : ''}${!hasAvailable ? ' unavailable' : ''}" 
-                     data-date="${dateKey}" 
+                <div class="date-card${isSelected ? ' selected' : ''}${!dateObj.has_slots ? ' unavailable' : ''}" 
+                     data-date="${dateObj.date}" 
                      role="button" tabindex="0"
-                     aria-label="${formatDate(date)}, ${hasAvailable ? 'есть свободное время' : 'нет мест'}">
+                     aria-label="${formatDate(date)}, ${dateObj.has_slots ? 'есть свободное время' : 'нет мест'}">
                     <div class="date-info">
                         <span class="date-day">${getDayName(date)}</span>
                         <span class="date-full">${formatDate(date)}</span>
-                        ${hasAvailable ? '<span class="date-available">Есть свободное время</span>' : '<span class="date-available" style="color:var(--error)">Мест нет</span>'}
+                        ${dateObj.has_slots ? '<span class="date-available">Есть свободное время</span>' : '<span class="date-available" style="color:var(--error)">Мест нет</span>'}
                     </div>
                     <svg class="date-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                 </div>
@@ -292,8 +307,8 @@
         });
     }
 
-    function selectDate(dateKey) {
-        const date = new Date(dateKey);
+    async function selectDate(dateKey) {
+        const date = new Date(dateKey + 'T00:00:00');
         state.selectedDate = date;
 
         if (elements.timeServiceDate) {
@@ -303,34 +318,34 @@
             elements.formDatetime.textContent = `${formatDate(date)}, время будет выбрано`;
         }
 
-        renderTimeSlots(dateKey);
+        const slots = await fetchAvailableSlots(state.selectedService.id, dateKey);
+        renderTimeSlots(slots);
         showScreen('screen-time');
     }
 
-    function renderTimeSlots(dateKey) {
-        const slots = state.availableSlots[dateKey] || {};
-        const html = CONFIG.TIME_SLOTS.map(time => {
-            const isAvailable = slots[time] !== false;
-            const isSelected = state.selectedTime === time;
+    function renderTimeSlots(slots) {
+        const html = slots.map(slot => {
+            const isSelected = state.selectedTime === slot.start_time;
 
             return `
-                <button class="time-slot${isSelected ? ' selected' : ''}${!isAvailable ? ' unavailable' : ''}" 
-                        data-time="${time}"
-                        ${!isAvailable ? 'disabled aria-disabled="true"' : ''}
-                        aria-label="${time}, ${isAvailable ? 'свободно' : 'занято'}">
-                    ${time}
+                <button class="time-slot${isSelected ? ' selected' : ''}" 
+                        data-time="${slot.start_time}"
+                        data-slot-id="${slot.id}"
+                        aria-label="${slot.start_time}, свободно">
+                    ${slot.start_time}
                 </button>
             `;
         }).join('');
         elements.timeSlots.innerHTML = html;
 
-        elements.timeSlots.querySelectorAll('.time-slot:not(.unavailable)').forEach(btn => {
-            btn.addEventListener('click', () => selectTime(btn.dataset.time));
+        elements.timeSlots.querySelectorAll('.time-slot').forEach(btn => {
+            btn.addEventListener('click', () => selectTime(btn.dataset.time, btn.dataset.slotId));
         });
     }
 
-    function selectTime(time) {
+    function selectTime(time, slotId) {
         state.selectedTime = time;
+        state.selectedSlotId = parseInt(slotId);
 
         if (elements.formDatetime) {
             elements.formDatetime.textContent = `${formatDate(state.selectedDate)}, ${time}`;
@@ -359,7 +374,7 @@
     function setupFormValidation() {
         if (!elements.bookingForm) return;
 
-elements.clientPhone?.addEventListener('input', e => {
+        elements.clientPhone?.addEventListener('input', e => {
             let value = e.target.value.replace(/\D/g, '');
             if (value.length > 11) value = value.slice(0, 11);
             if (value.startsWith('8')) value = '7' + value.slice(1);
@@ -425,7 +440,7 @@ elements.clientPhone?.addEventListener('input', e => {
 
     async function handleBookingSubmit(e) {
         e.preventDefault();
-        console.log('handleBookingSubmit called');
+        debugLog('handleBookingSubmit called');
 
         const nameValid = validateField(elements.clientName);
         const phoneValid = validateField(elements.clientPhone);
@@ -435,7 +450,7 @@ elements.clientPhone?.addEventListener('input', e => {
         const data = {
             action: 'booking',
             service_id: state.selectedService.id,
-            time_slot_id: getTimeSlotId(state.selectedDate, state.selectedTime),
+            time_slot_id: state.selectedSlotId,
             client_name: elements.clientName.value.trim(),
             client_phone: elements.clientPhone.value.trim(),
             notes: elements.clientNotes?.value.trim() || '',
@@ -446,24 +461,13 @@ elements.clientPhone?.addEventListener('input', e => {
 
         try {
             await sendToBot(data);
-            markSlotBooked(state.selectedDate.toISOString().split('T')[0], state.selectedTime);
             debugLog('Data sent successfully');
-            // WebApp closes automatically after sendData - bot sends confirmation to chat
         } catch (err) {
             debugLog('Booking error:', err);
             showErrorScreen(err.message || 'Не удалось создать запись. Попробуйте позже.');
         } finally {
             setLoading(elements.btnSubmit, false);
         }
-    }
-
-    function getTimeSlotId(date, time) {
-        const dateStr = date.toISOString().split('T')[0];
-        const serviceIndex = CONFIG.SERVICES.findIndex(s => s.id === state.selectedService.id);
-        const dateIndex = generateDates().findIndex(d => d.toISOString().split('T')[0] === dateStr);
-        const timeIndex = CONFIG.TIME_SLOTS.indexOf(time);
-        // Database now has 30 days per service (updated in init_data.py)
-        return (serviceIndex * 30 + dateIndex) * 5 + timeIndex + 1;
     }
 
     function sendToBot(data) {
@@ -476,7 +480,6 @@ elements.clientPhone?.addEventListener('input', e => {
 
             debugLog('Calling WebApp.sendData with:', JSON.stringify(data));
             WebApp.sendData(JSON.stringify(data));
-            // Explicitly close WebApp after sendData
             setTimeout(() => {
                 debugLog('Closing WebApp');
                 WebApp.close();
@@ -523,6 +526,7 @@ elements.clientPhone?.addEventListener('input', e => {
         state.selectedService = null;
         state.selectedDate = null;
         state.selectedTime = null;
+        state.selectedSlotId = null;
 
         showScreen('screen-success');
     }
@@ -569,7 +573,6 @@ elements.clientPhone?.addEventListener('input', e => {
                 client_name: name,
                 client_phone: phone,
             });
-            // WebApp closes automatically after sendData - bot sends confirmation to chat
         } catch (err) {
             debugLog('Contest error:', err);
             showContestError(err.message || 'Не удалось отправить ответ. Попробуйте позже.');
@@ -613,8 +616,9 @@ elements.clientPhone?.addEventListener('input', e => {
         }
     }
 
-    function init() {
+    async function init() {
         initElements();
+        await fetchServices();
         renderServices();
         setupFormValidation();
         setupContest();

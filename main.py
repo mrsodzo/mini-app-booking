@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -10,6 +11,7 @@ from bot.config import settings
 from bot.database import init_db, close_db, async_session_maker
 from bot.handlers import router as main_router
 from bot.init_data import init_default_data, ensure_time_slots, ensure_admin
+from bot.api import create_app
 
 
 logging.basicConfig(
@@ -40,6 +42,14 @@ async def main():
     dp = Dispatcher(storage=MemoryStorage())
     dp.include_router(main_router)
     
+    # Create and start aiohttp web server for API
+    app = await create_app()
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    await site.start()
+    logger.info("API server started on http://0.0.0.0:8080")
+    
     logger.info("Starting bot...")
     
     try:
@@ -47,6 +57,7 @@ async def main():
     finally:
         await bot.session.close()
         await close_db()
+        await runner.cleanup()
 
 
 if __name__ == "__main__":
