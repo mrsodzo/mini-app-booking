@@ -836,4 +836,3 @@ body {
 @supports (padding: max(0px)) {
     .screen-content { padding-bottom: max(20px, env(safe-area-inset-bottom)); }
 }
-</content>
