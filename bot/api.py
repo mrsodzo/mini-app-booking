@@ -92,28 +92,30 @@ async def get_available_slots(request: web.Request) -> web.Response:
                     TimeSlot.service_id == service_id,
                     TimeSlot.date == target_date,
                     TimeSlot.is_available == 1,
-                    TimeSlot.current_bookings < TimeSlot.max_bookings,
                 )
             ).order_by(TimeSlot.start_time)
         )
         slots = result.scalars().all()
         
-        # Deduplicate by start_time (keep first available)
-        seen_times = set()
-        unique_slots = []
+        # Group by start_time and check if ANY slot for that time has availability
+        from collections import defaultdict
+        slots_by_time = defaultdict(list)
         for s in slots:
-            if s.start_time not in seen_times:
-                seen_times.add(s.start_time)
-                unique_slots.append(s)
+            slots_by_time[s.start_time].append(s)
         
-        data = [
-            {
-                "id": s.id,
-                "start_time": s.start_time,
-                "end_time": s.end_time,
-            }
-            for s in unique_slots
-        ]
+        data = []
+        for start_time, time_slots in sorted(slots_by_time.items()):
+            # Check if there's at least one slot with availability
+            has_availability = any(s.current_bookings < s.max_bookings for s in time_slots)
+            if has_availability:
+                # Use the first available slot's ID
+                available_slot = next(s for s in time_slots if s.current_bookings < s.max_bookings)
+                data.append({
+                    "id": available_slot.id,
+                    "start_time": start_time,
+                    "end_time": available_slot.end_time,
+                })
+        
         return web.json_response({"slots": data}, headers={'Access-Control-Allow-Origin': '*'})
 
 

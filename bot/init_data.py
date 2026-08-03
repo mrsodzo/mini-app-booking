@@ -126,10 +126,11 @@ async def ensure_time_slots(session: AsyncSession):
     for service_id in service_ids:
         for day_offset in range(30):
             current_date = base_date + timedelta(days=day_offset)
+            date_str = current_date.strftime("%Y-%m-%d")
             for time_str in TIME_SLOTS:
                 existing = await session.execute(
-                    text("SELECT id FROM time_slots WHERE service_id = :sid AND date = :dt AND start_time = :st"),
-                    {"sid": service_id, "dt": current_date, "st": time_str}
+                    text("SELECT id FROM time_slots WHERE service_id = :sid AND date(date) = date(:dt) AND start_time = :st"),
+                    {"sid": service_id, "dt": date_str, "st": time_str}
                 )
                 if existing.scalar_one_or_none():
                     continue
